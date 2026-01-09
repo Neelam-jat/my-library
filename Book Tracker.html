@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Library V8</title>
+    
+    <!-- Libraries -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg: #faf9f6;
+            --surface: #ffffff;
+            --text-main: #2c2c2c;
+            --text-light: #666666;
+            --accent: #4f46e5;
+            --border: #e5e5e5;
+            --shadow: 0 4px 20px rgba(0,0,0,0.05);
+            --font-ui: 'Inter', sans-serif;
+            --font-serif: 'Playfair Display', serif;
+        }
+
+        body { background-color: var(--bg); color: var(--text-main); font-family: var(--font-ui); margin: 0; min-height: 100vh; }
+
+        /* --- HEADER --- */
+        header {
+            background: var(--surface); border-bottom: 1px solid var(--border);
+            padding: 15px 40px; display: flex; justify-content: space-between; align-items: center;
+            position: sticky; top: 0; z-index: 50;
+        }
+        .logo { font-family: var(--font-serif); font-weight: 700; font-size: 1.4rem; display: flex; align-items: center; gap: 10px; }
+        .nav-controls { display: flex; gap: 10px; align-items: center; }
+
+        .btn { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-main); cursor: pointer; font-size: 0.9rem; transition: 0.2s; font-family: var(--font-ui); font-weight: 500; }
+        .btn:hover { background: #f0f0f0; border-color: #ccc; }
+        .btn-black { background: #222; color: white; border: 1px solid #222; }
+        .btn-black:hover { background: #000; }
+
+        .toggle-group { background: #eee; padding: 4px; border-radius: 8px; display: flex; margin-right: 15px; }
+        .toggle-btn { background: transparent; border: none; padding: 6px 14px; font-size: 0.85rem; color: #666; border-radius: 6px; cursor: pointer; font-weight: 600; }
+        .toggle-btn.active { background: white; color: black; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+
+        /* --- DASHBOARD (V7 Design Restored) --- */
+        .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+        
+        .dashboard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 50px; }
+        
+        .dash-card {
+            background: var(--surface); padding: 25px; border-radius: 16px;
+            box-shadow: var(--shadow); border: 1px solid var(--border);
+            display: flex; flex-direction: column; justify-content: space-between;
+            position: relative; overflow: hidden; transition: 0.3s;
+        }
+        
+        /* Interactive Synthesis Card */
+        .synthesis-card { grid-column: span 2; cursor: pointer; border: 1px solid #4f46e5; background: linear-gradient(135deg, #fff 0%, #f0f4ff 100%); }
+        .synthesis-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(79, 70, 229, 0.15); }
+        .synthesis-bg { position: absolute; right: -20px; bottom: -20px; font-size: 8rem; opacity: 0.05; transform: rotate(-10deg); color: var(--accent); }
+
+        .dash-label { font-size: 0.75rem; text-transform: uppercase; color: var(--text-light); letter-spacing: 1px; font-weight: 600; margin-bottom: 10px; }
+        .dash-value { font-size: 2rem; font-weight: 800; color: var(--text-main); line-height: 1; }
+        .dash-sub { font-size: 0.85rem; color: var(--text-light); margin-top: 5px; }
+
+        /* --- SEARCH --- */
+        .search-area { position: relative; max-width: 700px; margin: 0 auto 50px; }
+        .search-bar { width: 100%; padding: 18px 25px; border-radius: 50px; border: 1px solid var(--border); font-size: 1.1rem; box-shadow: var(--shadow); outline: none; transition: 0.3s; font-family: var(--font-ui); }
+        .search-bar:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1); }
+        .results-drop { position: absolute; top: 110%; width: 100%; background: white; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 20px 40px rgba(0,0,0,0.1); display: none; z-index: 20; }
+        .res-item { padding: 15px; border-bottom: 1px solid #f0f0f0; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
+        .res-item:hover { background: #fafafa; }
+
+        /* --- GRID --- */
+        .list-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 25px; border-bottom: 1px solid var(--border); padding-bottom: 15px; }
+        .list-title { font-family: var(--font-serif); font-size: 1.5rem; margin: 0; }
+        
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 40px; }
+        .book-item { cursor: pointer; transition: transform 0.2s; }
+        .book-item:hover { transform: translateY(-8px); }
+        .b-cover { width: 100%; aspect-ratio: 2/3; object-fit: cover; border-radius: 6px; box-shadow: 5px 5px 15px rgba(0,0,0,0.1); background: #eee; margin-bottom: 10px; }
+        .b-title { font-weight: 700; font-size: 0.9rem; line-height: 1.3; margin-bottom: 4px; }
+        .b-auth { font-size: 0.8rem; color: #666; }
+
+        /* --- FULL SCREEN MODALS --- */
+        .fs-modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: white; z-index: 200; display: none; overflow-y: auto; }
+        
+        /* 1. BOOK VIEW (V7.5 Design) */
+        .fp-layout { display: grid; grid-template-columns: 350px 1fr; min-height: 100vh; }
+        .fp-sidebar { background: #faf9f6; border-right: 1px solid var(--border); padding: 40px; display: flex; flex-direction: column; gap: 20px; }
+        .fp-content { padding: 50px 70px; background: white; }
+        
+        .notion-block { background: white; border: 1px solid #ddd; padding: 15px; border-radius: 10px; margin-top: 10px; }
+        .notion-link { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px; background: #fff; border: 1px solid #ccc; border-radius: 6px; text-decoration: none; color: #333; font-weight: 600; justify-content: center; margin-top: 10px; font-size: 0.9rem; }
+        
+        .pdf-box { width: 100%; height: 750px; background: #525659; border-radius: 12px; margin: 20px 0; display: flex; align-items: center; justify-content: center; color: #ccc; border: 1px solid #eee; overflow: hidden; }
+
+        /* 2. SYNTHESIS VIEW */
+        .syn-container { max-width: 800px; margin: 60px auto; padding: 0 20px; text-align: center; }
+        .syn-persona { font-size: 5rem; font-family: var(--font-serif); font-weight: 700; color: var(--accent); margin-bottom: 10px; line-height: 1; }
+        .syn-tag { font-size: 1.2rem; letter-spacing: 2px; text-transform: uppercase; color: #999; font-weight: 600; margin-bottom: 40px; }
+        .syn-body { text-align: left; font-size: 1.2rem; line-height: 1.8; color: #444; background: #f9f9f9; padding: 40px; border-radius: 20px; border: 1px solid #eee; }
+
+        /* 3. WRAPPED PREVIEW VIEW */
+        .wrap-container { max-width: 1000px; margin: 40px auto; padding: 20px; text-align: center; }
+        .wrap-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 30px; margin-top: 30px; }
+        .wrap-preview-img { width: 100%; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: 1px solid #eee; }
+        .share-dock { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #222; padding: 15px 30px; border-radius: 50px; display: flex; gap: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); z-index: 300; }
+        .share-btn { color: white; background: none; border: none; font-size: 1.5rem; cursor: pointer; transition: 0.2s; }
+        .share-btn:hover { transform: scale(1.2); color: #fff; }
+
+        /* --- HIDDEN ASSET STAGE --- */
+        .asset-stage { position: absolute; left: -9999px; top: 0; }
+        .ws-slide { width: 1080px; height: 1920px; padding: 80px; box-sizing: border-box; display: flex; flex-direction: column; font-family: var(--font-ui); border: 40px solid white; position: relative; overflow: hidden; }
+        
+        /* Slide Styles */
+        .s1 { background: #1a1a1a; color: white; } /* Intro */
+        .s2 { background: linear-gradient(135deg, #FF9A9E 0%, #FECFEF 100%); color: #333; } /* Stats */
+        .s3 { background: #faf9f6; color: #111; } /* Grid */
+        .s4 { background: #4f46e5; color: white; } /* Persona */
+
+        .ws-big { font-size: 3.5rem; font-weight: 800; margin-bottom: 20px; }
+        .ws-huge { font-size: 10rem; font-family: var(--font-serif); line-height: 0.9; margin: 40px 0; }
+        
+        /* Book Grid for Wrapped */
+        .ws-book-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 40px; }
+        .ws-bg-img { width: 100%; aspect-ratio: 2/3; object-fit: cover; border-radius: 6px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+
+    </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+    <div class="logo"><i class="fas fa-book-reader"></i>&nbsp;The Library</div>
+    <div class="nav-controls">
+        <div class="toggle-group">
+            <button class="toggle-btn active" onclick="setMode('Books')">Books</button>
+            <button class="toggle-btn" onclick="setMode('Research')">Research</button>
+        </div>
+        
+        <select id="yearSelect" class="btn" onchange="render()">
+            <option value="2030">2030</option>
+            <option value="2029">2029</option>
+            <option value="2028">2028</option>
+            <option value="2027">2027</option>
+            <option value="2026" selected>2026</option>
+            <option value="2025">2025</option>
+            <option value="2024">2024</option>
+        </select>
+        
+        <button class="btn" onclick="setGoal()">Set Goal</button>
+        <button class="btn" onclick="downloadData()">Save</button>
+        <!-- Restored simple file loader -->
+        <label class="btn">Load <input type="file" hidden onchange="uploadData(this)"></label>
+        
+        <button class="btn btn-black" onclick="openWrappedPreview()">Generate Wrap ✨</button>
+    </div>
+</header>
+
+<div class="container">
+    
+    <!-- DASHBOARD V7 STYLE -->
+    <div class="dashboard">
+        <!-- Interactive Synthesis Card -->
+        <div class="dash-card synthesis-card" onclick="openSynthesis()">
+            <div class="dash-label">AI Knowledge Synthesis</div>
+            <div class="dash-value" style="font-size: 1.4rem; font-weight: 600; line-height: 1.4;" id="synPreview">
+                Click to generate your reading profile &rarr;
+            </div>
+            <div class="dash-sub">Based on your recent topics</div>
+            <i class="fas fa-brain synthesis-bg"></i>
+        </div>
+
+        <div class="dash-card">
+            <div class="dash-label">Annual Target</div>
+            <div class="dash-value"><span id="dashRead">0</span>/<span id="dashGoal">12</span></div>
+            <div class="dash-sub" id="dashPct">0% Complete</div>
+        </div>
+
+        <div class="dash-card">
+            <div class="dash-label">Total Consumption</div>
+            <div class="dash-value" id="dashWords">0k</div>
+            <div class="dash-sub">Words Read</div>
+        </div>
+    </div>
+
+    <!-- SEARCH -->
+    <div class="search-area">
+        <input type="text" class="search-bar" id="searchBox" placeholder="Search to add a book...">
+        <div class="results-drop" id="results"></div>
+    </div>
+
+    <!-- MAIN GRID -->
+    <div class="list-header">
+        <h2 class="list-title">Reading List</h2>
+        <div style="display:flex; gap:10px;">
+            <select class="btn" id="filterGenre" onchange="render()"><option value="All">All Genres</option></select>
+            <select class="btn" onchange="sortGrid(this.value)"><option value="new">Newest First</option><option value="old">Oldest First</option></select>
+        </div>
+    </div>
+
+    <div class="grid" id="mainGrid"></div>
+</div>
+
+<!-- 1. FULL PAGE BOOK DETAILS (V7.5 Logic) -->
+<div id="modalBook" class="fs-modal">
+    <div class="fp-layout">
+        <div class="fp-sidebar">
+            <button class="btn" onclick="document.getElementById('modalBook').style.display='none'">← Back</button>
+            <img id="fpCover" class="b-cover" src="">
+            
+            <div style="border-bottom:1px solid #eee; padding-bottom:20px;">
+                <label class="dash-label">Genre</label>
+                <input id="fpGenre" class="btn" style="width:100%; margin-bottom:10px;">
+                <label class="dash-label">Pages</label>
+                <input id="fpPages" type="number" class="btn" style="width:100%;">
+            </div>
+
+            <!-- Notion -->
+            <div class="notion-block">
+                <div class="dash-label"><i class="fas fa-link"></i> Notion Integration</div>
+                <input id="fpNotionInp" class="btn" style="width:100%; margin-top:5px;" placeholder="Paste Link...">
+                <a id="fpNotionBtn" href="#" target="_blank" class="notion-link" style="display:none;">Open in Notion</a>
+            </div>
+
+            <div style="margin-top:auto;">
+                <button class="btn" style="width:100%; color:red; border-color:#fee2e2; margin-bottom:10px;" onclick="deleteItem()">Delete</button>
+                <button class="btn btn-black" style="width:100%;" onclick="saveItem()">Save Changes</button>
+            </div>
+        </div>
+        
+        <div class="fp-content">
+            <h1 id="fpTitle" style="font-family:var(--font-serif); font-size:3rem; margin:0;">Title</h1>
+            <div id="fpAuthor" style="color:#666; font-size:1.2rem; margin-bottom:30px;">Author</div>
+
+            <label class="btn">
+                <i class="fas fa-file-pdf"></i> Upload PDF
+                <input type="file" hidden onchange="uploadPdf(this)">
+            </label>
+
+            <div id="pdfViewer" class="pdf-box">
+                <div>No PDF Loaded</div>
+            </div>
+
+            <label class="dash-label">Personal Notes</label>
+            <textarea id="fpNotes" style="width:100%; height:200px; padding:20px; border:1px solid #ddd; border-radius:12px; font-family:inherit; resize:vertical;"></textarea>
+        </div>
+    </div>
+</div>
+
+<!-- 2. FULL PAGE SYNTHESIS -->
+<div id="modalSynthesis" class="fs-modal">
+    <div class="container">
+        <button class="btn" onclick="document.getElementById('modalSynthesis').style.display='none'">← Close</button>
+        <div class="syn-container">
+            <div class="syn-tag">Your Reading Profile</div>
+            <div id="synPersona" class="syn-persona">The Scholar</div>
+            <div id="synText" class="syn-body">Loading analysis...</div>
+        </div>
+    </div>
+</div>
+
+<!-- 3. WRAPPED PREVIEW & SHARE -->
+<div id="modalWrapped" class="fs-modal" style="background:#111;">
+    <div class="wrap-container">
+        <div style="display:flex; justify-content:space-between; align-items:center; color:white;">
+            <h2 style="font-family:var(--font-serif);">Your Year Wrapped</h2>
+            <button class="btn" onclick="document.getElementById('modalWrapped').style.display='none'">Close</button>
+        </div>
+        
+        <div class="wrap-grid" id="previewGrid">
+            <div style="color:white; grid-column:span 2;">Generating Previews... please wait...</div>
+        </div>
+    </div>
+    
+    <div class="share-dock">
+        <button class="share-btn" onclick="share('wa')"><i class="fab fa-whatsapp"></i></button>
+        <button class="share-btn" onclick="share('mail')"><i class="fas fa-envelope"></i></button>
+        <button class="share-btn" onclick="downloadAll()"><i class="fas fa-download"></i></button>
+    </div>
+</div>
+
+<!-- HIDDEN ASSET STAGE (For Generation) -->
+<div class="asset-stage">
+    <!-- Slide 1: Grid of All Books -->
+    <div id="ws1" class="ws-slide s3">
+        <div class="ws-big">My Library <span id="wYear">2026</span></div>
+        <div class="ws-book-grid" id="wsGrid"></div>
+    </div>
+    <!-- Slide 2: Stats -->
+    <div id="ws2" class="ws-slide s2">
+        <div class="ws-big">The Numbers</div>
+        <div class="ws-huge" id="wCount">0</div>
+        <div style="font-size:3rem; font-weight:700;">Books Read</div>
+        <div style="margin-top:40px; font-size:2rem; opacity:0.7;">Total Pages: <span id="wPages">0</span></div>
+    </div>
+    <!-- Slide 3: Persona -->
+    <div id="ws3" class="ws-slide s4">
+        <div class="ws-big">Vibe Check</div>
+        <div class="ws-huge" style="font-size:7rem;" id="wPersona">Reader</div>
+        <div style="font-size:2.5rem; max-width:80%; line-height:1.4;" id="wQuote"></div>
+    </div>
+</div>
+
+<script>
+    // --- DATA & STATE ---
+    let library = JSON.parse(localStorage.getItem('lib_v7')) || [];
+    let goal = localStorage.getItem('goal_v7') || 12;
+    let activeMode = 'Books';
+    let activeId = null;
+    let searchTimer = null;
+    let generatedImages = []; // Stores dataURLs
+
+    // Initialize
+    render();
+
+    // --- CORE FUNCTIONS ---
+    function render() {
+        const yr = document.getElementById('yearSelect').value;
+        const genre = document.getElementById('filterGenre').value;
+        
+        // Filter
+        let items = library.filter(i => i.yr === yr && (i.type || 'Books') === activeMode);
+
+        // Update Genre Dropdown
+        const allCats = [...new Set(items.map(i => i.cat))].sort();
+        const sel = document.getElementById('filterGenre');
+        if(sel.options.length === 1 && items.length > 0) {
+            allCats.forEach(c => {
+                const opt = document.createElement('option'); opt.value = c; opt.innerText = c;
+                sel.appendChild(opt);
+            });
+        }
+        if(genre !== 'All') items = items.filter(i => i.cat === genre);
+
+        // Stats
+        document.getElementById('dashRead').innerText = items.length;
+        document.getElementById('dashGoal').innerText = goal;
+        document.getElementById('dashPct').innerText = Math.round((items.length/goal)*100) + "% Complete";
+        
+        const totalWords = items.reduce((a,b) => a + (parseInt(b.pg)*250 || 0), 0);
+        document.getElementById('dashWords').innerText = (totalWords/1000).toFixed(0) + "k";
+
+        // Grid
+        const grid = document.getElementById('mainGrid'); grid.innerHTML = "";
+        items.forEach(i => {
+            const el = document.createElement('div'); el.className = 'book-item';
+            el.innerHTML = `<img src="${i.img}" class="b-cover"><div class="b-title">${i.tit}</div><div class="b-auth">${i.aut}</div>`;
+            el.onclick = () => openBook(i.id);
+            grid.appendChild(el);
+        });
+
+                const synText = document.getElementById('synPreview');
+        if(items.length === 0) synText.innerHTML = "Start reading to generate insights &rarr;";
+        else synText.innerHTML = `Analyze ${items.length} titles to reveal your persona &rarr;`;
+    }
+
+    function setMode(m) {
+        activeMode = m;
+        document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+        event.target.classList.add('active');
+        render();
+    }
+
+    function sortGrid(val) {
+        const grid = document.getElementById('mainGrid');
+        const children = Array.from(grid.children);
+        if(val === 'old') children.reverse(); // Simple visual reverse for demo
+        grid.innerHTML = "";
+        children.forEach(c => grid.appendChild(c));
+    }
+
+    // --- SEARCH ---
+    document.getElementById('searchBox').addEventListener('input', (e) => {
+        clearTimeout(searchTimer);
+        const q = e.target.value;
+        const res = document.getElementById('results');
+        
+        if(q.length < 3) return res.style.display = 'none';
+
+        searchTimer = setTimeout(async () => {
+            const req = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=5`);
+            const data = await req.json();
+            
+            res.innerHTML = "";
+            if(data.items) {
+                data.items.forEach(book => {
+                    const info = book.volumeInfo;
+                    const div = document.createElement('div'); div.className = 'res-item';
+                    div.innerHTML = `<div><strong>${info.title}</strong><br><small>${info.authors?.[0]}</small></div>`;
+                    div.onclick = () => addItem(info);
+                    res.appendChild(div);
+                });
+                res.style.display = 'block';
+            }
+        }, 400);
+    });
+
+    function addItem(info) {
+        const entry = {
+            id: Date.now(),
+            yr: document.getElementById('yearSelect').value,
+            type: activeMode,
+            tit: info.title,
+            aut: info.authors?.[0] || 'Unknown',
+            img: info.imageLinks?.thumbnail || 'https://via.placeholder.com/150',
+            cat: info.categories?.[0] || 'General',
+            pg: info.pageCount || 0,
+            notion: "", notes: "", pdf: null
+        };
+        library.unshift(entry);
+        save(); render();
+        document.getElementById('results').style.display='none';
+        document.getElementById('searchBox').value="";
+        confetti({ origin: { y: 0.9 }, colors: ['#4f46e5', '#e0e7ff'] });
+    }
+
+    // --- BOOK DETAILS MODAL ---
+    function openBook(id) {
+        activeId = id;
+        const item = library.find(i => i.id === id);
+        
+        document.getElementById('fpTitle').innerText = item.tit;
+        document.getElementById('fpAuthor').innerText = item.aut;
+        document.getElementById('fpCover').src = item.img;
+        document.getElementById('fpGenre').value = item.cat;
+        document.getElementById('fpPages').value = item.pg;
+        document.getElementById('fpNotes').value = item.notes || "";
+        document.getElementById('fpNotionInp').value = item.notion || "";
+        
+        updateNotionUI(item.notion);
+        renderPdf(item.pdf);
+
+        document.getElementById('modalBook').style.display = 'block';
+    }
+
+    function updateNotionUI(url) {
+        const btn = document.getElementById('fpNotionBtn');
+        const inp = document.getElementById('fpNotionInp');
+        if(url && url.length > 5) {
+            btn.href = url; btn.style.display = 'flex'; inp.style.display = 'none';
+        } else {
+            btn.style.display = 'none'; inp.style.display = 'block';
+        }
+    }
+
+    function renderPdf(data) {
+        const v = document.getElementById('pdfViewer');
+        if(data) v.innerHTML = `<object data="${data}" type="application/pdf" width="100%" height="100%"></object>`;
+        else v.innerHTML = `<div>No PDF Loaded</div>`;
+    }
+
+    function uploadPdf(input) {
+        const file = input.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const item = library.find(i => i.id === activeId);
+            item.pdf = e.target.result;
+            renderPdf(item.pdf);
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function saveItem() {
+        const item = library.find(i => i.id === activeId);
+        item.cat = document.getElementById('fpGenre').value;
+        item.pg = document.getElementById('fpPages').value;
+        item.notes = document.getElementById('fpNotes').value;
+        item.notion = document.getElementById('fpNotionInp').value;
+        save(); render();
+        updateNotionUI(item.notion);
+        alert("Saved!");
+    }
+
+    function deleteItem() {
+        if(confirm("Delete this book?")) {
+            library = library.filter(i => i.id !== activeId);
+            save(); render();
+            document.getElementById('modalBook').style.display = 'none';
+        }
+    }
+
+    // --- SYNTHESIS & PERSONA ---
+    function openSynthesis() {
+        const yr = document.getElementById('yearSelect').value;
+        const items = library.filter(i => i.yr === yr && (i.type||'Books') === activeMode);
+
+        if(items.length === 0) return alert("Read some books first!");
+
+        // Analysis
+        const cats = {}; items.forEach(i => cats[i.cat] = (cats[i.cat]||0)+1);
+        const topCat = Object.keys(cats).sort((a,b)=>cats[b]-cats[a])[0];
+        
+        let persona = "The Novice";
+        if(topCat.includes("Fic")) persona = "The Dreamer";
+        if(topCat.includes("Sci")) persona = "The Futurist";
+        if(topCat.includes("Hist")) persona = "The Historian";
+        if(topCat.includes("Bus") || topCat.includes("Eco")) persona = "The Strategist";
+        if(items.length > 10) persona = "The Scholar";
+        
+        document.getElementById('synPersona').innerText = persona;
+        document.getElementById('synText').innerHTML = `
+            You have explored <b>${items.length}</b> worlds this year.<br>
+            Your mind is gravitating towards <b>${topCat}</b>.<br><br>
+            Based on your patterns, you are seeking to build a mental framework<br>
+            that balances creativity with structured understanding.
+        `;
+
+        document.getElementById('modalSynthesis').style.display = 'block';
+    }
+
+    // --- WRAPPED GENERATION ---
+    async function openWrappedPreview() {
+        const yr = document.getElementById('yearSelect').value;
+        const items = library.filter(i => i.yr === yr);
+        if(items.length === 0) return alert("No data for " + yr);
+
+        document.getElementById('modalWrapped').style.display = 'flex';
+        const grid = document.getElementById('previewGrid');
+        grid.innerHTML = '<div style="color:white; grid-column:span 2;">Generating assets...</div>';
+
+        // 1. Fill Hidden HTML
+        document.getElementById('wYear').innerText = yr;
+        document.getElementById('wCount').innerText = items.length;
+        document.getElementById('wPages').innerText = items.reduce((a,b)=>a+(parseInt(b.pg)||0),0);
+        
+        // Persona for Wrapped
+        const cats = {}; items.forEach(i => cats[i.cat] = (cats[i.cat]||0)+1);
+        const topCat = Object.keys(cats).sort((a,b)=>cats[b]-cats[a])[0] || "Mystery";
+        document.getElementById('wPersona').innerText = topCat.split(' ')[0]; // One word
+        document.getElementById('wQuote').innerText = `You spent ${yr} diving deep into the unknown.`;
+
+        // Fill Grid
+        const wg = document.getElementById('wsGrid'); wg.innerHTML="";
+        items.slice(0,9).forEach(i => {
+            const img = document.createElement('img'); img.src = i.img; img.className = 'ws-bg-img';
+            wg.appendChild(img);
+        });
+
+        // 2. Screenshot
+        generatedImages = [];
+        const ids = ['ws1', 'ws2', 'ws3'];
+        grid.innerHTML = ""; // Clear loader
+
+        for(let id of ids) {
+            const canvas = await html2canvas(document.getElementById(id), { scale: 0.5 }); // low scale for preview
+            const url = canvas.toDataURL();
+            generatedImages.push(url);
+            
+            const img = document.createElement('img');
+            img.src = url;
+            img.className = 'wrap-preview-img';
+            grid.appendChild(img);
+        }
+    }
+
+    // --- SAVE / LOAD ---
+    function save() { localStorage.setItem('lib_v7', JSON.stringify(library)); }
+    
+    function setGoal() {
+        const n = prompt("Set Goal:", goal);
+        if(n) { goal = n; localStorage.setItem('goal_v7', n); render(); }
+    }
+
+    function downloadData() {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(library));
+        const node = document.createElement('a');
+        node.setAttribute("href", dataStr);
+        node.setAttribute("download", "library_backup.json");
+        document.body.appendChild(node);
+        node.click(); node.remove();
+    }
+
+    function uploadData(input) {
+        const file = input.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                library = JSON.parse(e.target.result);
+                save(); render();
+                alert("Library Restored Successfully!");
+            } catch(e) { alert("Invalid File"); }
+        };
+        reader.readAsText(file);
+    }
+
+    function share(platform) {
+        if(generatedImages.length === 0) return alert("Generate first!");
+        const text = "Check out my Year in Books!";
+        if(platform === 'wa') window.open(`https://wa.me/?text=${encodeURIComponent(text)}`);
+        if(platform === 'mail') window.open(`mailto:?subject=My Library&body=${encodeURIComponent(text)}`);
+    }
+
+    function downloadAll() {
+        if(generatedImages.length === 0) return alert("Generate first!");
+        generatedImages.forEach((url, i) => {
+            const link = document.createElement('a');
+            link.download = `Wrapped_Page_${i+1}.png`;
+            link.href = url;
+            link.click();
+        });
+    }
+
+</script>
+</body>
+</html>
+

@@ -4,7 +4,7 @@ A personal, interactive book tracking dashboard built with **Vanilla JS**. It fe
 
 ### 🚀 [Click Here to Try the Live Demo](https://neelam-jat.github.io/my-library/)
 
-![App Screenshot]([https://github.com/Neelam-jat/my-library/blob/main/Library_Book%20Tracker.png]
+![App Screenshot]([Library_Book%20Tracker.png]
 
 ## ✨ Key Features
 
@@ -29,4 +29,4 @@ A personal, interactive book tracking dashboard built with **Vanilla JS**. It fe
 *   **Libraries:** `canvas-confetti`, `html2canvas`
 
 ---
-*Created by [Neelam]*
+*Created by Neelam*

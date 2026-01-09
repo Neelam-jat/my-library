@@ -4,7 +4,7 @@ A personal, interactive book tracking dashboard built with **Vanilla JS**. It fe
 
 ### 🚀 [Click Here to Try the Live Demo](https://neelam-jat.github.io/my-library/)
 
-![App Screenshot]([Library_Book%20Tracker.png]
+![My Library App](demo.png)
 
 ## ✨ Key Features
 

@@ -2,7 +2,7 @@
 
 A personal, interactive book tracking dashboard built with **Vanilla JS**. It features real-time search, data persistence without a backend, and a "Spotify Wrapped" style summary generator.
 
-### 🚀 [Click Here to Try the Live Demo](PUT_YOUR_LINK_HERE)
+### 🚀 [Click Here to Try the Live Demo](https://neelam-jat.github.io/my-library/)
 
 ![App Screenshot](PUT_A_LINK_TO_A_SCREENSHOT_HERE_IF_YOU_WANT)
 
@@ -29,4 +29,4 @@ A personal, interactive book tracking dashboard built with **Vanilla JS**. It fe
 *   **Libraries:** `canvas-confetti`, `html2canvas`
 
 ---
-*Created by [Your Name]*
+*Created by [Neelam]*
